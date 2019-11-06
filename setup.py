@@ -90,7 +90,8 @@ def _build_vex():
             print('##########################################################')
             if rc == 0:
                 break
-        except OSError:
+        except OSError as e:
+            print(e)
             continue
     else:
         raise LibError("Unable to build libVEX.")
