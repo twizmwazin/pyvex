@@ -88,7 +88,7 @@ def _build_vex():
     os.system('ls -la')
     os.system('ls -la %s' % VEX_PATH)
     print('and pwd says:\n')
-    subprocess.call(pwd, cwd=VEX_PATH, env=e)
+    subprocess.call('pwd', cwd=VEX_PATH, env=e)
     print('###########################################################################\n')
 
     cmd1 = ['nmake', '/f', 'Makefile-msvc', 'all']
