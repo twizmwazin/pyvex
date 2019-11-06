@@ -53,6 +53,13 @@ if not os.path.exists(VEX_PATH):
 if not os.path.exists(VEX_PATH):
     VEX_PATH = os.path.join(PROJECT_DIR, 'vex-master')
 
+sys.__stdout__.write('###########################################################################\n')
+sys.__stdout__.write('###########################################################################\n')
+sys.__stdout__.write('vex is at %s\n' % VEX_PATH)
+sys.__stdout__.write('###########################################################################\n')
+sys.__stdout__.write('###########################################################################\n')
+
+
 if not os.path.exists(VEX_PATH):
     sys.__stderr__.write('###########################################################################\n')
     sys.__stderr__.write('WARNING: downloading vex sources directly from github.\n')
@@ -72,6 +79,12 @@ def _build_vex():
     e = os.environ.copy()
     e['MULTIARCH'] = '1'
     e['DEBUG'] = '1'
+
+    sys.__stdout__.write('###########################################################################\n')
+    os.system('pwd')
+    os.system('ls -la')
+    os.system('ls -la %s' % VEX_PATH)
+    sys.__stdout__.write('###########################################################################\n')
 
     cmd1 = ['nmake', '/f', 'Makefile-msvc', 'all']
     cmd2 = ['make', '-f', 'Makefile-gcc', '-j', str(multiprocessing.cpu_count()), 'all']
