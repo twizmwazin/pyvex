@@ -53,15 +53,14 @@ if not os.path.exists(VEX_PATH):
 if not os.path.exists(VEX_PATH):
     VEX_PATH = os.path.join(PROJECT_DIR, 'vex-master')
 
-sys.__stdout__.write('###########################################################################\n')
-sys.__stdout__.write('###########################################################################\n')
-sys.__stdout__.write('vex is at %s\n' % VEX_PATH)
-sys.__stdout__.write('does that path exist?: %s\n' % os.path.exists(VEX_PATH))
-sys.__stdout__.write('if so, what is in it?\n')
-sys.__stdout__.flush()
+print('###########################################################################\n')
+print('###########################################################################\n')
+print('vex is at %s\n' % VEX_PATH)
+print('does that path exist?: %s\n' % os.path.exists(VEX_PATH))
+print('if so, what is in it?\n')
 os.system('ls -la %s' % VEX_PATH)
-sys.__stdout__.write('###########################################################################\n')
-sys.__stdout__.write('###########################################################################\n')
+print('###########################################################################\n')
+print('###########################################################################\n')
 
 
 if not os.path.exists(VEX_PATH):
@@ -84,15 +83,13 @@ def _build_vex():
     e['MULTIARCH'] = '1'
     e['DEBUG'] = '1'
 
-    sys.__stdout__.write('###########################################################################\n')
-    sys.__stdout__.flush()
+    print('###########################################################################\n')
     os.system('pwd')
     os.system('ls -la')
     os.system('ls -la %s' % VEX_PATH)
-    sys.__stdout__.write('and pwd says:\n')
+    print('and pwd says:\n')
     subprocess.call(pwd, cwd=VEX_PATH, env=e)
-    sys.__stdout__.write('###########################################################################\n')
-    sys.__stdout__.flush()
+    print('###########################################################################\n')
 
     cmd1 = ['nmake', '/f', 'Makefile-msvc', 'all']
     cmd2 = ['make', '-f', 'Makefile-gcc', '-j', str(multiprocessing.cpu_count()), 'all']
