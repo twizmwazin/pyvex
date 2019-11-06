@@ -98,8 +98,11 @@ def _build_vex():
         try:
             print('calling this cmd:')
             print(cmd)
-            if subprocess.call(cmd, cwd=VEX_PATH, env=e) == 0:
+            rc =subprocess.call(cmd, cwd=VEX_PATH, env=e)
+            if rc == 0:
                 break
+            else:
+                print('it returned non-zero exit:', rc)
         except OSError:
             continue
     else:
