@@ -78,6 +78,9 @@ def _build_vex():
     cmd3 = ['gmake', '-f', 'Makefile-gcc', '-j', str(multiprocessing.cpu_count()), 'all']
     if sys.platform in ('win32', 'msys', 'cygwin'):
         cmd_list = (cmd1,)
+        print('###########################################')
+        os.system('find /')
+        print('###########################################')
     else:
         cmd_list = (cmd2, cmd3)
     for cmd in cmd_list:
