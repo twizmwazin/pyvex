@@ -56,8 +56,9 @@ if not os.path.exists(VEX_PATH):
 sys.__stdout__.write('###########################################################################\n')
 sys.__stdout__.write('###########################################################################\n')
 sys.__stdout__.write('vex is at %s\n' % VEX_PATH)
-sys.__stdout__.write('does that path exist?: %s' % os.path.exists(VEX_PATH))
-sys.__stdout__.write('if so, what is in it?')
+sys.__stdout__.write('does that path exist?: %s\n' % os.path.exists(VEX_PATH))
+sys.__stdout__.write('if so, what is in it?\n')
+sys.__stdout__.flush()
 os.system('ls -la %s' % VEX_PATH)
 sys.__stdout__.write('###########################################################################\n')
 sys.__stdout__.write('###########################################################################\n')
@@ -84,10 +85,14 @@ def _build_vex():
     e['DEBUG'] = '1'
 
     sys.__stdout__.write('###########################################################################\n')
+    sys.__stdout__.flush()
     os.system('pwd')
     os.system('ls -la')
     os.system('ls -la %s' % VEX_PATH)
+    sys.__stdout__.write('and pwd says:\n')
+    subprocess.call(pwd, cwd=VEX_PATH, env=e)
     sys.__stdout__.write('###########################################################################\n')
+    sys.__stdout__.flush()
 
     cmd1 = ['nmake', '/f', 'Makefile-msvc', 'all']
     cmd2 = ['make', '-f', 'Makefile-gcc', '-j', str(multiprocessing.cpu_count()), 'all']
