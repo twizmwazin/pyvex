@@ -56,6 +56,9 @@ if not os.path.exists(VEX_PATH):
 sys.__stdout__.write('###########################################################################\n')
 sys.__stdout__.write('###########################################################################\n')
 sys.__stdout__.write('vex is at %s\n' % VEX_PATH)
+sys.__stdout__.write('does that path exist?: %s' % os.path.exists(VEX_PATH))
+sys.__stdout__.write('if so, what is in it?')
+os.system('ls -la %s' % VEX_PATH)
 sys.__stdout__.write('###########################################################################\n')
 sys.__stdout__.write('###########################################################################\n')
 
