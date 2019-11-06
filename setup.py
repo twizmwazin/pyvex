@@ -82,6 +82,8 @@ def _build_vex():
         cmd_list = (cmd2, cmd3)
     for cmd in cmd_list:
         try:
+            print('looking for a `Makefile-msvc`')
+            subprocess.call(['ls', '-la'], cwd=VEX_PATH, env=e)
             print('calling this cmd:')
             print(cmd)
             rc = subprocess.call(cmd, cwd=VEX_PATH, env=e)
