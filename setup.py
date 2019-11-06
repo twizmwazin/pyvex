@@ -96,6 +96,8 @@ def _build_vex():
     cmd3 = ['gmake', '-f', 'Makefile-gcc', '-j', str(multiprocessing.cpu_count()), 'all']
     for cmd in (cmd1, cmd2, cmd3):
         try:
+            print('calling this cmd:')
+            print(cmd)
             if subprocess.call(cmd, cwd=VEX_PATH, env=e) == 0:
                 break
         except OSError:
