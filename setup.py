@@ -53,16 +53,6 @@ if not os.path.exists(VEX_PATH):
 if not os.path.exists(VEX_PATH):
     VEX_PATH = os.path.join(PROJECT_DIR, 'vex-master')
 
-print('###########################################################################\n')
-print('###########################################################################\n')
-print('vex is at %s\n' % VEX_PATH)
-print('does that path exist?: %s\n' % os.path.exists(VEX_PATH))
-print('if so, what is in it?\n')
-os.system('ls -la %s' % VEX_PATH)
-print('###########################################################################\n')
-print('###########################################################################\n')
-
-
 if not os.path.exists(VEX_PATH):
     sys.__stderr__.write('###########################################################################\n')
     sys.__stderr__.write('WARNING: downloading vex sources directly from github.\n')
@@ -83,18 +73,14 @@ def _build_vex():
     e['MULTIARCH'] = '1'
     e['DEBUG'] = '1'
 
-    print('###########################################################################\n')
-    os.system('pwd')
-    os.system('ls -la')
-    os.system('ls -la %s' % VEX_PATH)
-    print('and pwd says:\n')
-    subprocess.call('pwd', cwd=VEX_PATH, env=e)
-    print('###########################################################################\n')
-
     cmd1 = ['nmake', '/f', 'Makefile-msvc', 'all']
     cmd2 = ['make', '-f', 'Makefile-gcc', '-j', str(multiprocessing.cpu_count()), 'all']
     cmd3 = ['gmake', '-f', 'Makefile-gcc', '-j', str(multiprocessing.cpu_count()), 'all']
-    for cmd in (cmd1, cmd2, cmd3):
+    if sys.platform in ('win32', 'msys', 'cygwin'):
+        cmd_list = (cmd1,)
+    else:
+        cmd_list = (cmd2, cmd3)
+    for cmd in cmd_list:
         try:
             print('calling this cmd:')
             print(cmd)
