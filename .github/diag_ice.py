@@ -75,24 +75,45 @@ def diagnose(name, path, cmd, cwd, lines):
             return t[:i] + f(t[i:j]) + t[j:]
         return g
 
-    variant("noinline EX_SS", sub("static void\ns390_irgen_EX_SS(", NI + "s390_irgen_EX_SS("))
-    variant("noinline EX", sub("static void\ns390_irgen_EX(UChar r1, IRTemp addr2)", NI + "s390_irgen_EX(UChar r1, IRTemp addr2)"))
-    variant("noinline EXRL", sub("static void\ns390_irgen_EXRL(", NI + "s390_irgen_EXRL("))
+    def in_dec(f):
+        def g(t):
+            i = t.index("s390_decode_and_irgen(const UChar *bytes, UInt insn_length, DisResult *dres)")
+            j = t.index("disInstr_S390_WRK(const UChar *insn)")
+            return t[:i] + f(t[i:j]) + t[j:]
+        return g
+    pre = re.compile(r"bytes\[ 0\] == 0x18 &&.*?bytes\[ 7\] == 0x33", re.S)
     variant("noinline decode_and_irgen", sub("static UInt\ns390_decode_and_irgen(const", "static __declspec(noinline) UInt\ns390_decode_and_irgen(const"))
-    variant("switch on >>56", in_ex(lambda r: re.sub(r"case 0x(..)00000000000000ULL:", r"case 0x\1:", r.replace("switch (last_execute_target & 0xff00000000000000ULL)", "switch (last_execute_target >> 56)"))))
-    variant("default: no bytes[0] read", in_ex(lambda r: r.replace("((((bytes[0] >> 6) + 1) >> 1) + 1) << 1", "6")))
-    variant("default: bytes points to copy", in_ex(lambda r: r.replace("bytes = (UChar *) &last_execute_target;", "{ static ULong copy_; copy_ = last_execute_target; bytes = (UChar *) &copy_; }")))
-    variant("default: no decode call", in_ex(lambda r: re.sub(r"s390_decode_and_irgen\(bytes,[^;]*;", "stmt((IRStmt*)bytes);", r)))
-    variant("EX_SS volatile ovl", sub("   IRDirty *d;\n   ULong ovl;", "   IRDirty *d;\n   volatile ULong ovl;"))
-    variant("EX_SS no reset of target", sub("   irgen(len, start1, start2);\n\n   last_execute_target = Invalid_execute_target;", "   irgen(len, start1, start2);\n"))
-    variant("EX default no reset of target", in_ex(lambda r: r.replace("      last_execute_target = Invalid_execute_target;", "")))
-    variant("EX no early invalid check", in_ex(lambda r: r.replace("if (last_execute_target == Invalid_execute_target) {", "if (r1 == 77) {")))
-    variant("only MVC case", in_ex(lambda r: re.sub(r"   case 0xd5.*?(?=   default:)", "", r, flags=re.S)))
+    variant("preamble: only byte0", in_dec(lambda r: pre.sub("bytes[0] == 0x18", r)))
+    variant("preamble: bytes 0-6", in_dec(lambda r: r.replace(" &&\n       bytes[ 6] == 0x18 && bytes[ 7] == 0x33".replace("\n", NL), " &&\n       bytes[ 6] == 0x18".replace("\n", NL))))
+    variant("preamble: bytes 0-3", in_dec(lambda r: pre.sub("bytes[0] == 0x18 && bytes[1] == 0xff && bytes[2] == 0x18 && bytes[3] == 0x11", r)))
+    variant("preamble: bytes 1-7 only", in_dec(lambda r: r.replace("bytes[ 0] == 0x18 && bytes[ 1] == 0xff", "bytes[ 1] == 0xff")))
+    variant("preamble: via volatile ptr", in_dec(lambda r: pre.sub("(*(const UChar *volatile *)&bytes)[0] == 0x18", r)))
+    variant("no next-insn-is-EX check", in_dec(lambda r: r.replace("if (dis_res->whatNext == Dis_Continue &&", "if (0 && dis_res->whatNext == Dis_Continue &&")))
+    variant("no special decode", in_dec(lambda r: r.replace("s390_decode_special_and_irgen(bytes + S390_SPECIAL_OP_PREAMBLE_SIZE);", "S390_DECODE_ERROR;")))
+    variant("no failure printing", in_dec(lambda r: r.replace("if (sigill_diag) {", "if (0) {")))
+    variant("EX: no top-byte switch", in_ex(lambda r: r.replace("switch (last_execute_target & 0xff00000000000000ULL)", "switch ((ULong)r1 << 60)")))
 
-    # standalone attempt
-    for flags in ["/O2", "/O2 /Ob2", "/O1", "/Ob1 /O2"]:
-        rc, out = run(f"cl /nologo /c {flags} /Fomini.obj .github\\mini_ice.c", ".")
-        print(f"MINI {flags}: rc {rc} | {out.strip()[-200:]}", flush=True)
+    # standalone attempts
+    HEAD = """typedef unsigned long long ULong; typedef unsigned char UChar;
+ULong target = 1; extern int flag; extern int other(const UChar *);
+static int dec(const UChar *b) {
+   if (flag && b[0] == 0x18 && b[1] == 0xff && b[2] == 0x18 && b[3] == 0x11 &&
+       b[4] == 0x18 && b[5] == 0x22 && b[6] == 0x18 && b[7] == 0x33)
+      return other(b + 8);
+   return other(b);
+}
+"""
+    minis = {
+      "switch+dec": "int ex(void) { switch (target & 0xff00000000000000ULL) { case 0xd200000000000000ULL: return 5; case 0xd500000000000000ULL: return 6; default: return dec((UChar *)&target); } }",
+      "plain dec": "int ex(void) { return dec((UChar *)&target); }",
+      "if+dec": "int ex(void) { if (target == 1) return 3; if ((target >> 56) == 0xd2) return 5; return dec((UChar *)&target); }",
+      "byte0+dec": "int ex(void) { UChar *b = (UChar *)&target; if (target == 1) return 3; return dec(b) + (b[0] >> 6); }",
+      "cmp+dec": "int ex(ULong x) { if (x != target) return 3; return dec((UChar *)&target); }",
+    }
+    for label, body in minis.items():
+        open("mini.c", "w").write(HEAD + body + "\n")
+        rc, out = run("cl /nologo /c /O2 /Fomini.obj mini.c", ".")
+        print(f"MINI {label}: rc {rc} | {out.strip()[-120:]}", flush=True)
 
 
 main()
