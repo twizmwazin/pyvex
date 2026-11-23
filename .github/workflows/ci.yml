@@ -22,5 +22,7 @@ jobs:
       - name: Build vex per-file, keep going
         shell: cmd
         run: |
-          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -B build || exit /b 1
-          cmake --build build --target vex -- -k 0
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON "-DCMAKE_C_FLAGS=/DWIN32 /D_WINDOWS /w" -B build || exit /b 1
+          cmake --build build --target vex -- -k 0 > build.log 2>&1
+          findstr /C:"FAILED" /C:"bad size" build.log
+          python .github\diag_ice.py
