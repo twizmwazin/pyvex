@@ -12,7 +12,7 @@ def run(cmd, cwd):
 
 def main():
     log = open("build.log", errors="replace").read()
-    failed = sorted(set(re.findall(r"FAILED: \S*?([\w-]+\.c)\.obj", log)))
+    failed = sorted(set(re.findall(r"FAILED:.*?([\w-]+\.c)\.obj", log)))
     print("FAILED FILES:", failed, flush=True)
     for m in re.finditer(r"FAILED:.*\n(?:.*\n){0,3}", log):
         pass
