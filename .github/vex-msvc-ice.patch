@@ -1,0 +1,19 @@
+diff --git a/priv/guest_s390_toIR.c b/priv/guest_s390_toIR.c
+index 32194fb..128a513 100644
+--- a/priv/guest_s390_toIR.c
++++ b/priv/guest_s390_toIR.c
+@@ -20640,6 +20640,14 @@ s390_decode_special_and_irgen(const UChar *bytes)
+ 
+ 
+ /* Function returns # bytes that were decoded or 0 in case of failure */
++#if defined(_MSC_VER)
++/* Keep this out of line.  s390_irgen_EX calls it with BYTES pointing at
++   the 8-byte global last_execute_target.  When the call is inlined there,
++   MSVC 19.52 (Visual Studio 2026) dies with an internal compiler error
++   ("base type 2 bad size 7") while optimizing the preamble byte compares
++   below against that global. */
++__declspec(noinline)
++#endif
+ static UInt
+ s390_decode_and_irgen(const UChar *bytes, UInt insn_length, DisResult *dres)
+ {

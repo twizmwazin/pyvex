@@ -9,20 +9,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  diag:
-    name: VS2026 ICE diagnosis (temporary)
-    runs-on: windows-2025-vs2026
+  test:
+    name: Test (temporary verification of the vex fix)
+    strategy:
+      matrix:
+        os: [windows-2022, windows-2025-vs2026]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           submodules: 'recursive'
+      - name: Apply vex fix
+        run: git -C vex apply --ignore-whitespace --verbose ../.github/vex-msvc-ice.patch
       - name: Activate msvc
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
-      - name: Build vex per-file, keep going
-        shell: cmd
-        run: |
-          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON "-DCMAKE_C_FLAGS=/DWIN32 /D_WINDOWS /w" -B build || exit /b 1
-          cmake --build build --target vex -- -k 0 > build.log 2>&1
-          findstr /C:"FAILED" /C:"bad size" build.log
-          python .github\diag_ice.py
+        if: startsWith(runner.os, 'windows')
+      - name: Setup uv
+        uses: astral-sh/setup-uv@445689ea25e0de0a23313031f5fe577c74ae45a1 # v6
+      - name: Sync dependencies
+        run: uv sync -p 3.12
+      - name: Run tests
+        run: uv run pytest tests
