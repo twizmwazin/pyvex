@@ -49,52 +49,50 @@ def diagnose(name, path, cmd, cwd, lines):
         rc, out = compile_with({}, flags)
         print(f"whole file {flags}: rc {rc}", flush=True)
 
-    bounds = [i + 1 for i, l in enumerate(lines) if l.rstrip("\r\n") == "}"]
-    # validate boundaries: pragma must be at file scope
-    for _ in range(5):
-        rc, out = compile_with({b: ON for b in bounds}, "/Od")
-        if rc == 0:
-            break
-        # inserted lines shift numbering; map reported line back
-        bad = set()
-        srt = sorted(bounds)
-        for ln in re.findall(r"\((\d+)\)\s*:\s*error C2156", out):
-            ln = int(ln)
-            for k, b in enumerate(srt):
-                if b + k + 1 == ln:
-                    bad.add(b)
-        print("dropping", len(bad), "non-file-scope boundaries; rc", rc, flush=True)
-        if not bad:
-            print(out[-2000:])
+    src = "".join(lines)
+
+    def variant(label, fn):
+        t = fn(src)
+        if t == src:
+            print(f"EXP {label}: transform did not apply", flush=True)
             return
-        bounds = [b for b in bounds if b not in bad]
-    bounds = [0] + bounds
-    if bounds[-1] != len(lines):
-        bounds.append(len(lines))
-    n = len(bounds) - 1
+        open(path, "w", encoding="latin-1", newline="").write(t)
+        rc, out = run(cmd, cwd)
+        print(f"EXP {label}: rc {rc} {'CRASH' if rc else 'ok'}", flush=True)
 
-    def ok(lo, hi):
-        rc, _ = compile_with({bounds[lo]: OFF, bounds[hi]: ON})
-        return rc == 0
+    NI = "static __declspec(noinline) void\n"
+    def sub(a, b, count=1):
+        a = a.replace("\n", NL); b = b.replace("\n", NL)
+        return lambda t: t.replace(a, b, count)
+    NL = "\r\n" if "\r\n" in src else "\n"
+    def region(t):
+        i = t.index("s390_irgen_EX(UChar r1, IRTemp addr2)")
+        j = t.index("s390_irgen_EXRL(UChar r1, UInt offset)")
+        return i, j
+    def in_ex(f):
+        def g(t):
+            i, j = region(t)
+            return t[:i] + f(t[i:j]) + t[j:]
+        return g
 
-    if not ok(0, n):
-        print("still crashes with optimization off everywhere (culprit in an included file?)")
-        return
-    lo, hi = 0, n
-    while hi - lo > 1:
-        mid = (lo + hi) // 2
-        if ok(lo, mid):
-            hi = mid
-        elif ok(mid, hi):
-            lo = mid
-        else:
-            print(f"multiple culprits within lines {bounds[lo]+1}-{bounds[hi]}", flush=True)
-            break
-        print(f"  narrowed to lines {bounds[lo]+1}-{bounds[hi]}", flush=True)
-    a, b = bounds[lo], bounds[hi]
-    print(f"CULPRIT {name}: lines {a+1}-{b}", flush=True)
-    sys.stdout.write("".join(lines[a:min(b, a + 12)]))
-    sys.stdout.flush()
+    variant("noinline EX_SS", sub("static void\ns390_irgen_EX_SS(", NI + "s390_irgen_EX_SS("))
+    variant("noinline EX", sub("static void\ns390_irgen_EX(UChar r1, IRTemp addr2)", NI + "s390_irgen_EX(UChar r1, IRTemp addr2)"))
+    variant("noinline EXRL", sub("static void\ns390_irgen_EXRL(", NI + "s390_irgen_EXRL("))
+    variant("noinline decode_and_irgen", sub("static UInt\ns390_decode_and_irgen(const", "static __declspec(noinline) UInt\ns390_decode_and_irgen(const"))
+    variant("switch on >>56", in_ex(lambda r: re.sub(r"case 0x(..)00000000000000ULL:", r"case 0x\1:", r.replace("switch (last_execute_target & 0xff00000000000000ULL)", "switch (last_execute_target >> 56)"))))
+    variant("default: no bytes[0] read", in_ex(lambda r: r.replace("((((bytes[0] >> 6) + 1) >> 1) + 1) << 1", "6")))
+    variant("default: bytes points to copy", in_ex(lambda r: r.replace("bytes = (UChar *) &last_execute_target;", "{ static ULong copy_; copy_ = last_execute_target; bytes = (UChar *) &copy_; }")))
+    variant("default: no decode call", in_ex(lambda r: re.sub(r"s390_decode_and_irgen\(bytes,[^;]*;", "stmt((IRStmt*)bytes);", r)))
+    variant("EX_SS volatile ovl", sub("   IRDirty *d;\n   ULong ovl;", "   IRDirty *d;\n   volatile ULong ovl;"))
+    variant("EX_SS no reset of target", sub("   irgen(len, start1, start2);\n\n   last_execute_target = Invalid_execute_target;", "   irgen(len, start1, start2);\n"))
+    variant("EX default no reset of target", in_ex(lambda r: r.replace("      last_execute_target = Invalid_execute_target;", "")))
+    variant("EX no early invalid check", in_ex(lambda r: r.replace("if (last_execute_target == Invalid_execute_target) {", "if (r1 == 77) {")))
+    variant("only MVC case", in_ex(lambda r: re.sub(r"   case 0xd5.*?(?=   default:)", "", r, flags=re.S)))
+
+    # standalone attempt
+    for flags in ["/O2", "/O2 /Ob2", "/O1", "/Ob1 /O2"]:
+        rc, out = run(f"cl /nologo /c {flags} /Fomini.obj .github\\mini_ice.c", ".")
+        print(f"MINI {flags}: rc {rc} | {out.strip()[-200:]}", flush=True)
 
 
 main()
